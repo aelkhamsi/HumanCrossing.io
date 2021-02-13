@@ -1,27 +1,52 @@
 
-//create an instance of a Phaser game Object
-var game = new Phaser.Game({
-    type: Phaser.AUTO,
-    width: 800,
-    height: 600,
-    scene: {
-        preload: preload,
-        create: create,
-        update: update
-    },
-    physics: {
-      default: 'arcade',
-      arcade: {
-        debug: true,
-        gravity: { y: 0 }
-      }
-    }
+//// Socket & Peer connection ////
+var PLAYER_ID;
+var gameState;
+
+const socket = io('/');
+var myPeer = new Peer();
+
+myPeer.on('open', id => {
+    PLAYER_ID = id;
+    socket.emit('join-room', ROOM_ID, PLAYER_ID);
+});
+
+socket.on('gameState', gs => {
+    gameState = gs;
+    console.log(gameState);
+});
+
+socket.on('init', gs => {
+    gameState = gs;
+    console.log(gameState);
+
+    //// Create Phaser game instance ////
+    var game = new Phaser.Game({
+        type: Phaser.AUTO,
+        width: 800,
+        height: 600,
+        scene: {
+            preload: preload,
+            create: create,
+            update: update
+        },
+        physics: {
+          default: 'arcade',
+          arcade: {
+            debug: true,
+            gravity: { y: 0 }
+          }
+        }
+    });
 })
+
+
 
 //GLOBAL VARIABLES
 var player;
 var cursors;
 var speed = 120;
+console.log(ROOM_ID);
 
 
 
