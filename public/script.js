@@ -2,6 +2,8 @@
 //// Socket & Peer connection ////
 var PLAYER_ID;
 var gameState;
+var game;
+var update_flag = false;
 
 const socket = io('/');
 var myPeer = new Peer();
@@ -11,17 +13,13 @@ myPeer.on('open', id => {
     socket.emit('join-room', ROOM_ID, PLAYER_ID);
 });
 
-socket.on('gameState', gs => {
-    gameState = gs;
+socket.on('init', initGameState => {
+    gameState = initGameState;
     console.log(gameState);
-});
-
-socket.on('init', gs => {
-    gameState = gs;
-    console.log(gameState);
+    update_flag = true;
 
     //// Create Phaser game instance ////
-    var game = new Phaser.Game({
+    game = new Phaser.Game({
         type: Phaser.AUTO,
         width: 800,
         height: 600,
@@ -40,10 +38,16 @@ socket.on('init', gs => {
     });
 })
 
+socket.on('gameState', newGameState => {
+    gameState = newGameState;
+    console.log(gameState);
+    update_flag = true;
+});
+
 
 
 //GLOBAL VARIABLES
-var player;
+var players = {}
 var cursors;
 var speed = 120;
 console.log(ROOM_ID);
@@ -55,6 +59,7 @@ function preload()
     this.load.image('tileset', 'maps/tileset.png');
     this.load.tilemapTiledJSON('island', 'maps/island.json');
     this.load.atlas('daunte', 'characters/daunte.png', 'characters/daunte.json');
+
 }
 
 
@@ -75,7 +80,7 @@ function create()
 
 
     //// Player Creation & Animation ////
-    player = this.physics.add.sprite(300, 400, 'daunte', 'walk_down_2.png');
+    players[PLAYER_ID] = this.physics.add.sprite(300, 400, 'daunte', 'walk_down_2.png');
 
     this.anims.create({
         key: 'walk_down',
@@ -105,9 +110,9 @@ function create()
         frameRate: 5
     });
 
-    player.anims.play('walk_down');
-    this.physics.add.collider(player, collideLayer);
-    this.cameras.main.startFollow(player, true);
+    players[PLAYER_ID].anims.play('walk_down');
+    this.physics.add.collider(players[PLAYER_ID], collideLayer);
+    this.cameras.main.startFollow(players[PLAYER_ID], true);
     this.cameras.main.setBackgroundColor(0x50a7e8);
 }
 
@@ -115,35 +120,75 @@ function create()
 
 function update()
 {
+  //Update game state
+  if (update_flag) {
+    update_flag = false;
+    updateGameState(this);
+  }
+
+
+  //Control player
   if (cursors.left.isDown)
   {
-      player.anims.play('walk_left', true);
-      player.setVelocity(-speed, 0);
+      players[PLAYER_ID].anims.play('walk_left', true);
+      players[PLAYER_ID].setVelocity(-speed, 0);
   }
   else if (cursors.right.isDown)
   {
-      player.anims.play('walk_right', true);
-      player.setVelocity(speed, 0);
+      players[PLAYER_ID].anims.play('walk_right', true);
+      players[PLAYER_ID].setVelocity(speed, 0);
   }
   else if (cursors.up.isDown)
   {
-      player.anims.play('walk_up', true);
-      player.setVelocity(0, -speed);
+      players[PLAYER_ID].anims.play('walk_up', true);
+      players[PLAYER_ID].setVelocity(0, -speed);
   }
   else if (cursors.down.isDown)
   {
-      player.anims.play('walk_down', true);
-      player.setVelocity(0, speed);
+      players[PLAYER_ID].anims.play('walk_down', true);
+      players[PLAYER_ID].setVelocity(0, speed);
   }
   else
   {
-      var sprite = player.anims.currentAnim.key.split('_');
+      var sprite = players[PLAYER_ID].anims.currentAnim.key.split('_');
       sprite.push('2.png');
-      player.play(sprite.join('_'));
-      player.setVelocity(0, 0);
+      players[PLAYER_ID].play(sprite.join('_'));
+      players[PLAYER_ID].setVelocity(0, 0);
   }
 }
 
+
+
+function updateGameState(game) {
+
+  //Check for new players & update the state of existing ones
+  for (let player of gameState.players) {
+      const id = player.playerId;
+      if (id != PLAYER_ID) {
+          if (!(id in players)) { //new player
+              players[id] = game.physics.add.sprite(player.posX, player.posY, 'daunte', 'walk_down_2.png');
+          } else { //existing player
+            // Update the player's position
+          }
+      }
+  }
+
+  //Check for players who exited the room
+  for (let playerId in players) {
+      var active = false;
+      for (let player of gameState.players) {
+          if (player.playerId == playerId) {
+              active = true;
+              break;
+          }
+      }
+
+      if (!active) {
+          players[playerId].destroy();
+          delete players[playerId]
+      }
+  }
+}
 
 
 function collisionDebug(collisionLayers, game)
