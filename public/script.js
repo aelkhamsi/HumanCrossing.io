@@ -3,7 +3,9 @@
 var PLAYER_ID;
 var gameState;
 var game;
-var update_flag = false;
+var create_players_flag = false;
+var add_players_flag = false;
+var remove_players_flag = false;
 
 const socket = io('/');
 var myPeer = new Peer();
@@ -13,10 +15,10 @@ myPeer.on('open', id => {
     socket.emit('join-room', ROOM_ID, PLAYER_ID);
 });
 
-socket.on('init', initGameState => {
+socket.on('init-gamestate', initGameState => {
     gameState = initGameState;
     console.log(gameState);
-    update_flag = true;
+    create_players_flag = true;
 
     //// Create Phaser game instance ////
     game = new Phaser.Game({
@@ -36,18 +38,30 @@ socket.on('init', initGameState => {
           }
         }
     });
-})
-
-socket.on('gameState', newGameState => {
-    gameState = newGameState;
-    console.log(gameState);
-    update_flag = true;
 });
 
 
+socket.on('add-player', playerState => {
+    newPlayers.push(playerState);
+    add_players_flag = true;
+});
+
+
+socket.on('remove-player', playerId => {
+    oldPlayers.push(playerId);
+    remove_players_flag = true;
+});
+
+socket.on('player-state', playerState => {
+    //updatePlayer(playerState);
+    console.log(playerState);
+})
+
 
 //GLOBAL VARIABLES
-var players = {}
+var players = {};
+var newPlayers = []; //queue of players to be added to the game
+var oldPlayers = []; //queue of player ids to be removed from the game
 var cursors;
 var speed = 120;
 console.log(ROOM_ID);
@@ -58,8 +72,7 @@ function preload()
 {
     this.load.image('tileset', 'maps/tileset.png');
     this.load.tilemapTiledJSON('island', 'maps/island.json');
-    this.load.atlas('daunte', 'characters/daunte.png', 'characters/daunte.json');
-
+    this.load.atlas('hemadi', 'characters/hemadi.png', 'characters/hemadi.json');
 }
 
 
@@ -80,34 +93,34 @@ function create()
 
 
     //// Player Creation & Animation ////
-    players[PLAYER_ID] = this.physics.add.sprite(300, 400, 'daunte', 'walk_down_2.png');
+    players[PLAYER_ID] = this.physics.add.sprite(300, 400, 'hemadi', 'walk_down_2.png');
 
     this.anims.create({
         key: 'walk_down',
-        frames: this.anims.generateFrameNames('daunte', {start: 1, end: 4, prefix: 'walk_down_', suffix: '.png'}),
+        frames: this.anims.generateFrameNames('hemadi', {start: 1, end: 4, prefix: 'walk_down_', suffix: '.png'}),
         repeat: -1,
-        frameRate: 5
+        frameRate: 8
     });
 
     this.anims.create({
         key: 'walk_up',
-        frames: this.anims.generateFrameNames('daunte', {start: 1, end: 4, prefix: 'walk_up_', suffix: '.png'}),
+        frames: this.anims.generateFrameNames('hemadi', {start: 1, end: 4, prefix: 'walk_up_', suffix: '.png'}),
         repeat: -1,
-        frameRate: 5
+        frameRate: 8
     });
 
     this.anims.create({
         key: 'walk_left',
-        frames: this.anims.generateFrameNames('daunte', {start: 1, end: 4, prefix: 'walk_left_', suffix: '.png'}),
+        frames: this.anims.generateFrameNames('hemadi', {start: 1, end: 4, prefix: 'walk_left_', suffix: '.png'}),
         repeat: -1,
-        frameRate: 5
+        frameRate: 8
     });
 
     this.anims.create({
         key: 'walk_right',
-        frames: this.anims.generateFrameNames('daunte', {start: 1, end: 4, prefix: 'walk_right_', suffix: '.png'}),
+        frames: this.anims.generateFrameNames('hemadi', {start: 1, end: 4, prefix: 'walk_right_', suffix: '.png'}),
         repeat: -1,
-        frameRate: 5
+        frameRate: 8
     });
 
     players[PLAYER_ID].anims.play('walk_down');
@@ -120,14 +133,36 @@ function create()
 
 function update()
 {
-  //Update game state
-  if (update_flag) {
-    update_flag = false;
-    updateGameState(this);
+  //Creating all players in initialization
+  if (create_players_flag) {
+    create_players_flag = false;
+    createPlayers(this);
   }
 
+  //Add a player
+  if (add_players_flag) {
+    add_players_flag = false;
+    for (let playerState of newPlayers) {
+      addPlayer(this, playerState);
+    }
+  }
 
-  //Control player
+  //Remove a player
+  if (remove_players_flag) {
+    remove_players_flag = false;
+    for (let playerId of oldPlayers) {
+      removePlayer(this, playerId);
+    }
+  }
+
+  //Send our player state
+  socket.emit('player-state', {
+    playerId: PLAYER_ID,
+    posX: players[PLAYER_ID].x,
+    posY: players[PLAYER_ID].y
+  })
+
+  //Control our player
   if (cursors.left.isDown)
   {
       players[PLAYER_ID].anims.play('walk_left', true);
@@ -158,38 +193,27 @@ function update()
 }
 
 
-
-function updateGameState(game) {
-
-  //Check for new players & update the state of existing ones
+function createPlayers(game) {
   for (let player of gameState.players) {
       const id = player.playerId;
       if (id != PLAYER_ID) {
           if (!(id in players)) { //new player
-              players[id] = game.physics.add.sprite(player.posX, player.posY, 'daunte', 'walk_down_2.png');
-          } else { //existing player
-            // Update the player's position
+              players[id] = game.physics.add.sprite(player.posX, player.posY, 'hemadi', 'walk_down_2.png');
           }
-      }
-  }
-
-  //Check for players who exited the room
-  for (let playerId in players) {
-      var active = false;
-      for (let player of gameState.players) {
-          if (player.playerId == playerId) {
-              active = true;
-              break;
-          }
-      }
-
-      if (!active) {
-          players[playerId].destroy();
-          delete players[playerId]
       }
   }
 }
 
+function addPlayer(game, playerState) {
+    const playerId = playerState.playerId;
+    players[playerId] = game.physics.add.sprite(playerState.posX, playerState.posY, 'hemadi', 'walk_down_2.png');
+}
+
+function removePlayer(game, playerId) {
+    players[playerId].destroy();
+    delete players[playerId];
+    console.log('DESTROY');
+}
 
 function collisionDebug(collisionLayers, game)
 {
@@ -202,3 +226,20 @@ function collisionDebug(collisionLayers, game)
         })
     });
 }
+
+
+
+//Check for players who exited the room
+// for (let playerId in players) {
+//     var active = false;
+//     for (let player of gameState.players) {
+//         if (player.playerId == playerId) {
+//             active = true;
+//             break;
+//         }
+//     }
+//     if (!active) {
+//         players[playerId].destroy();
+//         delete players[playerId]
+//     }
+// }

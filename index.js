@@ -22,31 +22,30 @@ app.get('/:roomId', (req, res) => {
 
 
 io.on('connection', socket => {
-
   socket.on('join-room', (roomId, playerId) => {
     socket.join(roomId);
+    const newPlayer = {
+      playerId: playerId,
+      posX: 300,
+      posY: 400
+    };
     if (gameStates[roomId]) //if the room already exists
     {
-      gameStates[roomId].players.push({
-        playerId: playerId,
-        posX: 300,
-        posY: 400
-      });
-      socket.to(roomId).broadcast.emit('gameState', gameStates[roomId])
-      socket.emit('init', gameStates[roomId]);
-      //io.sockets.in(roomId).emit('gameState', gameStates[roomId]);
+      gameStates[roomId].players.push(newPlayer);
+      socket.to(roomId).broadcast.emit('add-player', newPlayer)
     }
     else
     {
-      gameStates[roomId] = createGameState(playerId);
-      socket.emit('init', gameStates[roomId]);
+      gameStates[roomId] = createGameState(newPlayer);
     }
+    socket.emit('init-gamestate', gameStates[roomId]);
+
 
     //Handling disconnection
     socket.on('disconnect', () => {
       const gameState = gameStates[roomId];
       const players = gameState.players;
-
+      
       for (let index in players) {
         if (players[index].playerId == playerId) {
           players.splice(index, 1);
@@ -54,7 +53,12 @@ io.on('connection', socket => {
         }
       }
 
-      socket.to(roomId).broadcast.emit('gameState', gameStates[roomId]);
+      socket.to(roomId).broadcast.emit('remove-player', playerId);
+    });
+
+
+    socket.on('player-state', playerState => {  //playerState == {playerId: ..., posX: ..., posY: ...}
+        socket.to(roomId).broadcast.emit('player-state', playerState);
     });
   });
 
@@ -64,15 +68,9 @@ io.on('connection', socket => {
 
 
 
-function createGameState(playerId) {
+function createGameState(newPlayer) {
   return {
-    players: [
-      {
-        playerId: playerId,
-        posX: 300,
-        posY: 400
-      }
-    ]
+    players: [newPlayer]
   }
 }
 
