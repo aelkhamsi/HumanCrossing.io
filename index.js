@@ -23,11 +23,10 @@ app.get('/:roomId', (req, res) => {
 
 io.on('connection', socket => {
   socket.on('join-room', (roomId, playerId) => {
-    socket.join(roomId);
     const newPlayer = {
-      playerId: playerId,
-      posX: 300,
-      posY: 400
+      id: playerId,
+      x: 300,
+      y: 400
     };
     if (gameStates[roomId]) //if the room already exists
     {
@@ -39,15 +38,15 @@ io.on('connection', socket => {
       gameStates[roomId] = createGameState(newPlayer);
     }
     socket.emit('init-gamestate', gameStates[roomId]);
-
+    socket.join(roomId);
 
     //Handling disconnection
     socket.on('disconnect', () => {
       const gameState = gameStates[roomId];
       const players = gameState.players;
-      
+
       for (let index in players) {
-        if (players[index].playerId == playerId) {
+        if (players[index].id == playerId) {
           players.splice(index, 1);
           break;
         }
@@ -57,7 +56,7 @@ io.on('connection', socket => {
     });
 
 
-    socket.on('player-state', playerState => {  //playerState == {playerId: ..., posX: ..., posY: ...}
+    socket.on('player-state', playerState => {  //playerState == {id: ..., x: ..., y: ...}
         socket.to(roomId).broadcast.emit('player-state', playerState);
     });
   });

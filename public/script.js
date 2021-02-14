@@ -3,9 +3,8 @@
 var PLAYER_ID;
 var gameState;
 var game;
+var scene;
 var create_players_flag = false;
-var add_players_flag = false;
-var remove_players_flag = false;
 
 const socket = io('/');
 var myPeer = new Peer();
@@ -38,34 +37,34 @@ socket.on('init-gamestate', initGameState => {
           }
         }
     });
+
+    //createPlayers(scene);
 });
 
 
 socket.on('add-player', playerState => {
-    newPlayers.push(playerState);
-    add_players_flag = true;
+    addPlayer(scene, playerState);
 });
 
 
 socket.on('remove-player', playerId => {
-    oldPlayers.push(playerId);
-    remove_players_flag = true;
+    removePlayer(playerId);
 });
 
 socket.on('player-state', playerState => {
-    //updatePlayer(playerState);
-    console.log(playerState);
+    const id = playerState.id;
+    positions[id].x = playerState.x;
+    positions[id].y = playerState.y;
 })
 
 
 //GLOBAL VARIABLES
 var players = {};
-var newPlayers = []; //queue of players to be added to the game
-var oldPlayers = []; //queue of player ids to be removed from the game
-var cursors;
+var cursors = {};
+var localCursor;
+var positions = {};
 var speed = 120;
-console.log(ROOM_ID);
-
+var collideLayer;
 
 
 function preload()
@@ -79,7 +78,7 @@ function preload()
 
 function create()
 {
-    cursors = this.input.keyboard.createCursorKeys();
+    scene = this;
 
     //// Map Creation ////
     const map = this.make.tilemap({key: 'island'});
@@ -87,13 +86,16 @@ function create()
 
     const groundLayer = map.createStaticLayer('Ground', tileset);
     const bushesLayer = map.createStaticLayer('Bushes', tileset);
-    const collideLayer = map.createStaticLayer('Collide', tileset);
+    collideLayer = map.createStaticLayer('Collide', tileset);
     collideLayer.setCollisionByExclusion([-1]);
     //collisionDebug([groundLayer, bushesLayer, collideLayer], this)
 
 
     //// Player Creation & Animation ////
     players[PLAYER_ID] = this.physics.add.sprite(300, 400, 'hemadi', 'walk_down_2.png');
+    localCursor = this.input.keyboard.createCursorKeys();
+    positions[PLAYER_ID] = {x: 300, y: 400};
+
 
     this.anims.create({
         key: 'walk_down',
@@ -133,86 +135,121 @@ function create()
 
 function update()
 {
-  //Creating all players in initialization
-  if (create_players_flag) {
-    create_players_flag = false;
-    createPlayers(this);
-  }
-
-  //Add a player
-  if (add_players_flag) {
-    add_players_flag = false;
-    for (let playerState of newPlayers) {
-      addPlayer(this, playerState);
+    //Creating all players in initialization
+    if (create_players_flag) {
+      create_players_flag = false;
+      createPlayers(this);
     }
-  }
 
-  //Remove a player
-  if (remove_players_flag) {
-    remove_players_flag = false;
-    for (let playerId of oldPlayers) {
-      removePlayer(this, playerId);
+    //Control our player
+    if (localCursor.left.isDown)
+    {
+        players[PLAYER_ID].anims.play('walk_left', true);
+        players[PLAYER_ID].setVelocity(-speed, 0);
     }
-  }
+    else if (localCursor.right.isDown)
+    {
+        players[PLAYER_ID].anims.play('walk_right', true);
+        players[PLAYER_ID].setVelocity(speed, 0);
+    }
+    else if (localCursor.up.isDown)
+    {
+        players[PLAYER_ID].anims.play('walk_up', true);
+        players[PLAYER_ID].setVelocity(0, -speed);
+    }
+    else if (localCursor.down.isDown)
+    {
+        players[PLAYER_ID].anims.play('walk_down', true);
+        players[PLAYER_ID].setVelocity(0, speed);
+    }
+    else
+    {
+        var sprite = players[PLAYER_ID].anims.currentAnim.key.split('_');
+        sprite.push('2.png');
+        players[PLAYER_ID].play(sprite.join('_'));
+        players[PLAYER_ID].setVelocity(0, 0);
+    }
 
-  //Send our player state
-  socket.emit('player-state', {
-    playerId: PLAYER_ID,
-    posX: players[PLAYER_ID].x,
-    posY: players[PLAYER_ID].y
-  })
+    //Send our player state
+    socket.emit('player-state', {
+      id: PLAYER_ID,
+      x: players[PLAYER_ID].x,
+      y: players[PLAYER_ID].y
+    })
 
-  //Control our player
-  if (cursors.left.isDown)
-  {
-      players[PLAYER_ID].anims.play('walk_left', true);
-      players[PLAYER_ID].setVelocity(-speed, 0);
-  }
-  else if (cursors.right.isDown)
-  {
-      players[PLAYER_ID].anims.play('walk_right', true);
-      players[PLAYER_ID].setVelocity(speed, 0);
-  }
-  else if (cursors.up.isDown)
-  {
-      players[PLAYER_ID].anims.play('walk_up', true);
-      players[PLAYER_ID].setVelocity(0, -speed);
-  }
-  else if (cursors.down.isDown)
-  {
-      players[PLAYER_ID].anims.play('walk_down', true);
-      players[PLAYER_ID].setVelocity(0, speed);
-  }
-  else
-  {
-      var sprite = players[PLAYER_ID].anims.currentAnim.key.split('_');
-      sprite.push('2.png');
-      players[PLAYER_ID].play(sprite.join('_'));
-      players[PLAYER_ID].setVelocity(0, 0);
-  }
+    //Update the cursors
+    //updateCursors(this);
+
+    //Move the characters of other players
+    for (let id in players) {
+        if (id != PLAYER_ID) {
+            if (cursors[id].left)
+            {
+                players[id].anims.play('walk_left', true);
+                players[id].setVelocity(-speed, 0);
+            }
+            else if (cursors[id].right)
+            {
+                players[id].anims.play('walk_right', true);
+                players[id].setVelocity(speed, 0);
+            }
+            else if (cursors[id].up)
+            {
+                players[id].anims.play('walk_up', true);
+                players[id].setVelocity(0, -speed);
+            }
+            else if (cursors[id].down)
+            {
+                players[id].anims.play('walk_down', true);
+                players[id].setVelocity(0, speed);
+            }
+            else
+            {
+                var sprite = players[id].anims.currentAnim.key.split('_');
+                sprite.push('2.png');
+                players[id].play(sprite.join('_'));
+                players[id].setVelocity(0, 0);
+            }
+        }
+    }
 }
 
 
-function createPlayers(game) {
+function createPlayers(scene) {
   for (let player of gameState.players) {
-      const id = player.playerId;
+      const id = player.id;
       if (id != PLAYER_ID) {
           if (!(id in players)) { //new player
-              players[id] = game.physics.add.sprite(player.posX, player.posY, 'hemadi', 'walk_down_2.png');
+              players[id] = scene.physics.add.sprite(player.x, player.y, 'hemadi', 'walk_down_2.png');
+              players[id].anims.play('walk_down');
+              cursors[id] = {right: false, left: false, up: false, down: false};
+              positions[id] = {x: player.x, y: player.y};
+              scene.physics.add.collider(players[id], collideLayer);
           }
       }
   }
 }
 
-function addPlayer(game, playerState) {
-    const playerId = playerState.playerId;
-    players[playerId] = game.physics.add.sprite(playerState.posX, playerState.posY, 'hemadi', 'walk_down_2.png');
+function movePlayers(game) {
+    // TODO: compare players[id].x with positions[id].x
+    //             & players[id].y with positions[id].y
+    // for (let id in players) {
+    //
+    // }
 }
 
-function removePlayer(game, playerId) {
+function addPlayer(scene, playerState) {
+    const id = playerState.id;
+    players[id] = scene.physics.add.sprite(playerState.x, playerState.y, 'hemadi', 'walk_down_2.png');
+    players[id].anims.play('walk_down');
+    cursors[id] = {right: false, left: false, up: false, down: false};
+    positions[id] = {x: playerState.x, y: playerState.y};
+    scene.physics.add.collider(players[id], collideLayer);
+}
+
+function removePlayer(playerId) {
     players[playerId].destroy();
     delete players[playerId];
-    console.log('DESTROY');
 }
 
 function collisionDebug(collisionLayers, game)
@@ -226,20 +263,3 @@ function collisionDebug(collisionLayers, game)
         })
     });
 }
-
-
-
-//Check for players who exited the room
-// for (let playerId in players) {
-//     var active = false;
-//     for (let player of gameState.players) {
-//         if (player.playerId == playerId) {
-//             active = true;
-//             break;
-//         }
-//     }
-//     if (!active) {
-//         players[playerId].destroy();
-//         delete players[playerId]
-//     }
-// }
