@@ -1,15 +1,29 @@
 
-//// Socket & Peer connection ////
-var PLAYER_ID;
+
+//GLOBAL VARIABLES
 var gameState;
-var game;
 var scene;
+var PLAYER_ID; // Our ID
 var create_players_flag = false;
 
+var players = {};  // sprites representing the other characters
+var localPlayer; // sprite of our character
+
+var cursors = {};  // cursors (arrow keys) of the other players
+var localCursor; // Our cursor
+
+var positions = {};  // positions of the other players
+//we don't need to store our position globally
+
+var speed = 120;
+var collideLayer;
+
+
+//// Socket & Peer connection ////
 const socket = io('/');
 var myPeer = new Peer();
 
-myPeer.on('open', id => {
+myPeer.on('open', id => { //The connection to a peer server gives each player a unique ID
     PLAYER_ID = id;
     socket.emit('join-room', ROOM_ID, PLAYER_ID);
 });
@@ -20,7 +34,7 @@ socket.on('init-gamestate', initGameState => {
     create_players_flag = true;
 
     //// Create Phaser game instance ////
-    game = new Phaser.Game({
+    var game = new Phaser.Game({
         type: Phaser.AUTO,
         width: 800,
         height: 600,
@@ -37,8 +51,6 @@ socket.on('init-gamestate', initGameState => {
           }
         }
     });
-
-    //createPlayers(scene);
 });
 
 
@@ -51,21 +63,17 @@ socket.on('remove-player', playerId => {
     removePlayer(playerId);
 });
 
-socket.on('player-state', playerState => {
+socket.on('player-state', playerState => { //Update the positions of a player
     const id = playerState.id;
     positions[id].x = playerState.x;
     positions[id].y = playerState.y;
 })
 
 
-//GLOBAL VARIABLES
-var players = {};
-var cursors = {};
-var localCursor;
-var positions = {};
-var speed = 120;
-var collideLayer;
 
+//////////////////////////////////////
+/// Functions for the Phaser scene ///
+//////////////////////////////////////
 
 function preload()
 {
@@ -92,9 +100,8 @@ function create()
 
 
     //// Player Creation & Animation ////
-    players[PLAYER_ID] = this.physics.add.sprite(300, 400, 'hemadi', 'walk_down_2.png');
+    localPlayer = this.physics.add.sprite(300, 400, 'hemadi', 'walk_down_2.png');
     localCursor = this.input.keyboard.createCursorKeys();
-    positions[PLAYER_ID] = {x: 300, y: 400};
 
 
     this.anims.create({
@@ -125,9 +132,9 @@ function create()
         frameRate: 8
     });
 
-    players[PLAYER_ID].anims.play('walk_down');
-    this.physics.add.collider(players[PLAYER_ID], collideLayer);
-    this.cameras.main.startFollow(players[PLAYER_ID], true);
+    localPlayer.anims.play('walk_down');
+    this.physics.add.collider(localPlayer, collideLayer);
+    this.cameras.main.startFollow(localPlayer, true);
     this.cameras.main.setBackgroundColor(0x50a7e8);
 }
 
@@ -141,117 +148,159 @@ function update()
       createPlayers(this);
     }
 
-    //Control our player
+    //Move our player
     if (localCursor.left.isDown)
     {
-        players[PLAYER_ID].anims.play('walk_left', true);
-        players[PLAYER_ID].setVelocity(-speed, 0);
+        localPlayer.anims.play('walk_left', true);
+        localPlayer.setVelocity(-speed, 0);
     }
     else if (localCursor.right.isDown)
     {
-        players[PLAYER_ID].anims.play('walk_right', true);
-        players[PLAYER_ID].setVelocity(speed, 0);
+        localPlayer.anims.play('walk_right', true);
+        localPlayer.setVelocity(speed, 0);
     }
     else if (localCursor.up.isDown)
     {
-        players[PLAYER_ID].anims.play('walk_up', true);
-        players[PLAYER_ID].setVelocity(0, -speed);
+        localPlayer.anims.play('walk_up', true);
+        localPlayer.setVelocity(0, -speed);
     }
     else if (localCursor.down.isDown)
     {
-        players[PLAYER_ID].anims.play('walk_down', true);
-        players[PLAYER_ID].setVelocity(0, speed);
+        localPlayer.anims.play('walk_down', true);
+        localPlayer.setVelocity(0, speed);
     }
     else
     {
-        var sprite = players[PLAYER_ID].anims.currentAnim.key.split('_');
+        var sprite = localPlayer.anims.currentAnim.key.split('_');
         sprite.push('2.png');
-        players[PLAYER_ID].play(sprite.join('_'));
-        players[PLAYER_ID].setVelocity(0, 0);
+        localPlayer.play(sprite.join('_'));
+        localPlayer.setVelocity(0, 0);
     }
 
-    //Send our player state
+    //Broadcast our player state
     socket.emit('player-state', {
       id: PLAYER_ID,
-      x: players[PLAYER_ID].x,
-      y: players[PLAYER_ID].y
+      x: localPlayer.x,
+      y: localPlayer.y
     })
 
-    //Update the cursors
-    //updateCursors(this);
+    //Update the cursors of the other players
+    updateCursors(this);
 
     //Move the characters of other players
-    for (let id in players) {
-        if (id != PLAYER_ID) {
-            if (cursors[id].left)
-            {
-                players[id].anims.play('walk_left', true);
-                players[id].setVelocity(-speed, 0);
-            }
-            else if (cursors[id].right)
-            {
-                players[id].anims.play('walk_right', true);
-                players[id].setVelocity(speed, 0);
-            }
-            else if (cursors[id].up)
-            {
-                players[id].anims.play('walk_up', true);
-                players[id].setVelocity(0, -speed);
-            }
-            else if (cursors[id].down)
-            {
-                players[id].anims.play('walk_down', true);
-                players[id].setVelocity(0, speed);
-            }
-            else
-            {
-                var sprite = players[id].anims.currentAnim.key.split('_');
-                sprite.push('2.png');
-                players[id].play(sprite.join('_'));
-                players[id].setVelocity(0, 0);
-            }
-        }
-    }
+    movePlayers();
 }
 
 
+/*  When we join a room, the server sends a gameState containing all the players in the room
+    This function creates an instance of these players locally
+*/
 function createPlayers(scene) {
   for (let player of gameState.players) {
       const id = player.id;
       if (id != PLAYER_ID) {
           if (!(id in players)) { //new player
-              players[id] = scene.physics.add.sprite(player.x, player.y, 'hemadi', 'walk_down_2.png');
-              players[id].anims.play('walk_down');
               cursors[id] = {right: false, left: false, up: false, down: false};
               positions[id] = {x: player.x, y: player.y};
+              players[id] = scene.physics.add.sprite(player.x, player.y, 'hemadi', 'walk_down_2.png');
+              players[id].anims.play('walk_down');
               scene.physics.add.collider(players[id], collideLayer);
           }
       }
   }
 }
 
-function movePlayers(game) {
-    // TODO: compare players[id].x with positions[id].x
-    //             & players[id].y with positions[id].y
-    // for (let id in players) {
-    //
-    // }
-}
 
+/*  Add a player that have just joined the room
+*/
 function addPlayer(scene, playerState) {
     const id = playerState.id;
-    players[id] = scene.physics.add.sprite(playerState.x, playerState.y, 'hemadi', 'walk_down_2.png');
-    players[id].anims.play('walk_down');
     cursors[id] = {right: false, left: false, up: false, down: false};
     positions[id] = {x: playerState.x, y: playerState.y};
+    players[id] = scene.physics.add.sprite(playerState.x, playerState.y, 'hemadi', 'walk_down_2.png');
+    players[id].anims.play('walk_down');
     scene.physics.add.collider(players[id], collideLayer);
 }
 
+
+/*  Remove a player that have just exited the room
+*/
 function removePlayer(playerId) {
     players[playerId].destroy();
     delete players[playerId];
 }
 
+
+/*  On each frame, the other players send their updated positions.
+    If the updated position for a player is different from the local position,
+  we activate the cursors (arrow keys) corresponding to this player to be able to move
+  his character later
+*/
+function updateCursors(game) {
+    for (let id in players) {
+        if (players[id].x > positions[id].x) {
+            cursors[id].left = true;
+        }
+        else if (players[id].x < positions[id].x) {
+            cursors[id].right = true;
+        }
+        else {
+            cursors[id].left = false;
+            cursors[id].right = false;
+        }
+
+        if (players[id].y > positions[id].y) {
+            cursors[id].up = true;
+        }
+        else if (players[id].y < positions[id].y) {
+            cursors[id].down = true;
+        }
+        else {
+            cursors[id].up = false;
+            cursors[id].down = false;
+        }
+    }
+}
+
+
+/* Based on the cursors state of each player,
+  we move the character corresponding to this player
+*/
+function movePlayers() {
+    for (let id in players) {
+      if (id != PLAYER_ID) {
+        if (cursors[id].left)
+        {
+          players[id].anims.play('walk_left', true);
+          players[id].setVelocity(-speed, 0);
+        }
+        else if (cursors[id].right)
+        {
+          players[id].anims.play('walk_right', true);
+          players[id].setVelocity(speed, 0);
+        }
+        else if (cursors[id].up)
+        {
+          players[id].anims.play('walk_up', true);
+          players[id].setVelocity(0, -speed);
+        }
+        else if (cursors[id].down)
+        {
+          players[id].anims.play('walk_down', true);
+          players[id].setVelocity(0, speed);
+        }
+        else
+        {
+          var sprite = players[id].anims.currentAnim.key.split('_');
+          sprite.push('2.png');
+          players[id].play(sprite.join('_'));
+          players[id].setVelocity(0, 0);
+        }
+      }
+    }
+}
+
+//dev
 function collisionDebug(collisionLayers, game)
 {
     const debugGraphics = game.add.graphics().setAlpha(0.7)

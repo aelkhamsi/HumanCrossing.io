@@ -57,6 +57,13 @@ io.on('connection', socket => {
 
 
     socket.on('player-state', playerState => {  //playerState == {id: ..., x: ..., y: ...}
+        for (player of gameStates[roomId].players) {
+            if (player.id == playerState.id) {
+                player.x = playerState.x;
+                player.y = playerState.y;
+                break;
+            }
+        }
         socket.to(roomId).broadcast.emit('player-state', playerState);
     });
   });
@@ -66,7 +73,7 @@ io.on('connection', socket => {
 });
 
 
-
+//auxiliary function
 function createGameState(newPlayer) {
   return {
     players: [newPlayer]
