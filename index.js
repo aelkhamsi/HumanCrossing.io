@@ -28,19 +28,14 @@ io.on('connection', socket => {
         y: 400
     };
 
-    if (gameStates[roomId]) //if the room already exists
-    {
-      gameStates[roomId].coords[playerId] = playerCoords;
-      socket.to(roomId).broadcast.emit('add-player', playerId, playerCoords)
-    }
-    else //new room
+    if (!gameStates[roomId]) //new room
     {
       gameStates[roomId] = {
         coords: {}
       };
-      gameStates[roomId].coords[playerId] = playerCoords;
     }
-
+    gameStates[roomId].coords[playerId] = playerCoords;
+    socket.to(roomId).broadcast.emit('add-player', playerId, playerCoords)
     socket.emit('init-gamestate', gameStates[roomId]);
     socket.join(roomId);
 
