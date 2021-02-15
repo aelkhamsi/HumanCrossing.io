@@ -16,6 +16,7 @@ var positions = {};  // positions of the other players
 //we don't need to store our position globally
 
 var peers = {}; //peer-to-peer call objects
+var videoElements = {}; //HTML video elements linked to each player
 
 var speed = 120;
 var collideLayer;
@@ -55,6 +56,10 @@ socket.on('init-gamestate', initGameState => {
 socket.on('remove-player', playerId => {
     removePlayer(playerId);
     peers[playerId].close();
+    delete peers[playerId];
+
+    videoElements[playerId].remove();
+    delete videoElements[playerId];
 });
 
 socket.on('player-state', (playerId, playerCoords) => { //Update the positions of a player
@@ -82,18 +87,15 @@ navigator.mediaDevices.getUserMedia({
   video: true,
   audio: true
 }).then(stream => {
-  addVideoStream(stream, myVideo);
+  addVideoStream(stream, myVideo, undefined);
 
   myPeer.on('call', call => { //id?
     const playerId = call.peer;
     call.answer(stream);
     const video = document.createElement('video');
     call.on('stream', stream => {
-      addVideoStream(stream, video);
+      addVideoStream(stream, video, playerId);
     });
-    // call.on('close', () => {
-    //   video.close();
-    // });
 
     peers[playerId] = call;
   })
@@ -105,12 +107,13 @@ navigator.mediaDevices.getUserMedia({
 })
 
 
-function addVideoStream(stream, video) {
+function addVideoStream(stream, video, playerId) {
   video.srcObject = stream;
   video.addEventListener('loadedmetadata', () => {
     video.play();
   });
   videoGrid.append(video);
+  if (playerId) videoElements[playerId] = video;
 }
 
 
@@ -118,11 +121,8 @@ function sendVideoStream(playerId, stream) {
   const call = myPeer.call(playerId, stream);
   const video = document.createElement('video');
   call.on('stream', stream => {
-    addVideoStream(stream, video);
+    addVideoStream(stream, video, playerId);
   });
-  // call.on('close', () => {
-  //   video.close();
-  // })
 
   peers[playerId] = call;
 }
