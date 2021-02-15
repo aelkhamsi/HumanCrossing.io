@@ -53,7 +53,10 @@ io.on('connection', socket => {
           break;
         }
       }
-      socket.to(roomId).broadcast.emit('remove-player', playerId);
+      if (isEmpty(gameStates[roomId].players))//empty room
+        delete gameStates[roomId];
+      else
+        socket.to(roomId).broadcast.emit('remove-player', playerId);
     });
 
 
@@ -66,6 +69,16 @@ io.on('connection', socket => {
 
 
 });
+
+
+//Auxiliary functions
+function isEmpty(obj) {
+    for(var prop in obj) {
+        if(obj.hasOwnProperty(prop))
+            return false;
+    }
+    return true;
+}
 
 
 
