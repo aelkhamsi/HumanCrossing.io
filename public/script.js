@@ -54,8 +54,8 @@ socket.on('init-gamestate', initGameState => {
 });
 
 
-socket.on('add-player', playerState => {
-    addPlayer(scene, playerState);
+socket.on('add-player', (playerId, playerCoords) => {
+    addPlayer(scene, playerId, playerCoords);
 });
 
 
@@ -63,10 +63,9 @@ socket.on('remove-player', playerId => {
     removePlayer(playerId);
 });
 
-socket.on('player-state', playerState => { //Update the positions of a player
-    const id = playerState.id;
-    positions[id].x = playerState.x;
-    positions[id].y = playerState.y;
+socket.on('player-state', (playerId, playerCoords) => { //Update the positions of a player
+    positions[playerId].x = playerCoords.x;
+    positions[playerId].y = playerCoords.y;
 })
 
 
@@ -178,11 +177,7 @@ function update()
     }
 
     //Broadcast our player state
-    socket.emit('player-state', {
-      id: PLAYER_ID,
-      x: localPlayer.x,
-      y: localPlayer.y
-    })
+    socket.emit('player-state', PLAYER_ID, {x: localPlayer.x, y: localPlayer.y});
 
     //Update the cursors of the other players
     updateCursors(this);
@@ -196,13 +191,13 @@ function update()
     This function creates an instance of these players locally
 */
 function createPlayers(scene) {
-  for (let player of gameState.players) {
-      const id = player.id;
+  for (let id in gameState.players) {
       if (id != PLAYER_ID) {
           if (!(id in players)) { //new player
+              const coords = gameState.players[id];
               cursors[id] = {right: false, left: false, up: false, down: false};
-              positions[id] = {x: player.x, y: player.y};
-              players[id] = scene.physics.add.sprite(player.x, player.y, 'hemadi', 'walk_down_2.png');
+              positions[id] = {x: coords.x, y: coords.y};
+              players[id] = scene.physics.add.sprite(coords.x, coords.y, 'hemadi', 'walk_down_2.png');
               players[id].anims.play('walk_down');
               scene.physics.add.collider(players[id], collideLayer);
           }
@@ -213,13 +208,12 @@ function createPlayers(scene) {
 
 /*  Add a player that have just joined the room
 */
-function addPlayer(scene, playerState) {
-    const id = playerState.id;
-    cursors[id] = {right: false, left: false, up: false, down: false};
-    positions[id] = {x: playerState.x, y: playerState.y};
-    players[id] = scene.physics.add.sprite(playerState.x, playerState.y, 'hemadi', 'walk_down_2.png');
-    players[id].anims.play('walk_down');
-    scene.physics.add.collider(players[id], collideLayer);
+function addPlayer(scene, playerId, playerCoords) {
+    cursors[playerId] = {right: false, left: false, up: false, down: false};
+    positions[playerId] = {x: playerCoords.x, y: playerCoords.y};
+    players[playerId] = scene.physics.add.sprite(playerCoords.x, playerCoords.y, 'hemadi', 'walk_down_2.png');
+    players[playerId].anims.play('walk_down');
+    scene.physics.add.collider(players[playerId], collideLayer);
 }
 
 
@@ -228,6 +222,8 @@ function addPlayer(scene, playerState) {
 function removePlayer(playerId) {
     players[playerId].destroy();
     delete players[playerId];
+    delete cursors[playerId];
+    delete positions[playerId];
 }
 
 

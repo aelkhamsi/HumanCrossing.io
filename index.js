@@ -23,48 +23,43 @@ app.get('/:roomId', (req, res) => {
 
 io.on('connection', socket => {
   socket.on('join-room', (roomId, playerId) => {
-    const newPlayer = {
-      id: playerId,
-      x: 300,
-      y: 400
+    const playerCoords = {
+        x: 300,
+        y: 400
     };
+
     if (gameStates[roomId]) //if the room already exists
     {
-      gameStates[roomId].players.push(newPlayer);
-      socket.to(roomId).broadcast.emit('add-player', newPlayer)
+      gameStates[roomId].players[playerId] = playerCoords;
+      socket.to(roomId).broadcast.emit('add-player', playerId, playerCoords)
     }
-    else
+    else //new room
     {
-      gameStates[roomId] = createGameState(newPlayer);
+      gameStates[roomId] = {
+        players: {}
+      };
+      gameStates[roomId].players[playerId] = playerCoords;
     }
+
     socket.emit('init-gamestate', gameStates[roomId]);
     socket.join(roomId);
 
+
     //Handling disconnection
     socket.on('disconnect', () => {
-      const gameState = gameStates[roomId];
-      const players = gameState.players;
-
-      for (let index in players) {
-        if (players[index].id == playerId) {
-          players.splice(index, 1);
+      for (let id in gameStates[roomId].players) {
+        if (id == playerId) {
+          delete gameStates[roomId].players[id];
           break;
         }
       }
-
       socket.to(roomId).broadcast.emit('remove-player', playerId);
     });
 
 
-    socket.on('player-state', playerState => {  //playerState == {id: ..., x: ..., y: ...}
-        for (player of gameStates[roomId].players) {
-            if (player.id == playerState.id) {
-                player.x = playerState.x;
-                player.y = playerState.y;
-                break;
-            }
-        }
-        socket.to(roomId).broadcast.emit('player-state', playerState);
+    socket.on('player-state', (playerId, playerCoords) => {  //playerCoords == {x: ..., y: ...}
+        gameStates[roomId].players[playerId] = playerCoords;
+        socket.to(roomId).broadcast.emit('player-state', playerId, playerCoords);
     });
   });
 
@@ -72,13 +67,6 @@ io.on('connection', socket => {
 
 });
 
-
-//auxiliary function
-function createGameState(newPlayer) {
-  return {
-    players: [newPlayer]
-  }
-}
 
 
 const PORT = process.env.PORT || 8080;
