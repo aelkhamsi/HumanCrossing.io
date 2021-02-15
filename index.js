@@ -30,15 +30,15 @@ io.on('connection', socket => {
 
     if (gameStates[roomId]) //if the room already exists
     {
-      gameStates[roomId].players[playerId] = playerCoords;
+      gameStates[roomId].coords[playerId] = playerCoords;
       socket.to(roomId).broadcast.emit('add-player', playerId, playerCoords)
     }
     else //new room
     {
       gameStates[roomId] = {
-        players: {}
+        coords: {}
       };
-      gameStates[roomId].players[playerId] = playerCoords;
+      gameStates[roomId].coords[playerId] = playerCoords;
     }
 
     socket.emit('init-gamestate', gameStates[roomId]);
@@ -47,13 +47,13 @@ io.on('connection', socket => {
 
     //Handling disconnection
     socket.on('disconnect', () => {
-      for (let id in gameStates[roomId].players) {
+      for (let id in gameStates[roomId].coords) {
         if (id == playerId) {
-          delete gameStates[roomId].players[id];
+          delete gameStates[roomId].coords[id];
           break;
         }
       }
-      if (isEmpty(gameStates[roomId].players))//empty room
+      if (isEmpty(gameStates[roomId].coords))//empty room
         delete gameStates[roomId];
       else
         socket.to(roomId).broadcast.emit('remove-player', playerId);
@@ -61,7 +61,7 @@ io.on('connection', socket => {
 
 
     socket.on('player-state', (playerId, playerCoords) => {  //playerCoords == {x: ..., y: ...}
-        gameStates[roomId].players[playerId] = playerCoords;
+        gameStates[roomId].coords[playerId] = playerCoords;
         socket.to(roomId).broadcast.emit('player-state', playerId, playerCoords);
     });
   });

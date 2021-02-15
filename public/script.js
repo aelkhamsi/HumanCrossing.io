@@ -19,25 +19,22 @@ var speed = 120;
 var collideLayer;
 
 
-//// Socket & Peer connection ////
-const socket = io('/');
-var myPeer = new Peer();
+//////////////////////////////////
+/////// Socket Connection ////////
+//////////////////////////////////
 
-myPeer.on('open', id => { //The connection to a peer server gives each player a unique ID
-    PLAYER_ID = id;
-    socket.emit('join-room', ROOM_ID, PLAYER_ID);
-});
+const socket = io('/');
 
 socket.on('init-gamestate', initGameState => {
     gameState = initGameState;
-    console.log(gameState);
     create_players_flag = true;
 
-    //// Create Phaser game instance ////
+    /// Create Phaser game instance ///
     var game = new Phaser.Game({
         type: Phaser.AUTO,
         width: 800,
         height: 600,
+        canvas: document.getElementById('phaser-scene'),
         scene: {
             preload: preload,
             create: create,
@@ -53,11 +50,9 @@ socket.on('init-gamestate', initGameState => {
     });
 });
 
-
 socket.on('add-player', (playerId, playerCoords) => {
     addPlayer(scene, playerId, playerCoords);
 });
-
 
 socket.on('remove-player', playerId => {
     removePlayer(playerId);
@@ -69,10 +64,44 @@ socket.on('player-state', (playerId, playerCoords) => { //Update the positions o
 })
 
 
+//////////////////////////////
+////// Peer Connection ///////
+//////////////////////////////
 
-//////////////////////////////////////
-/// Functions for the Phaser scene ///
-//////////////////////////////////////
+var myPeer = new Peer();
+
+myPeer.on('open', id => { //The connection to a peer server gives each player a unique ID
+    PLAYER_ID = id;
+    socket.emit('join-room', ROOM_ID, PLAYER_ID);
+});
+
+const videoGrid = document.getElementById('video-grid');
+const myVideo = document.createElement('video');
+myVideo.muted = true;
+
+navigator.mediaDevices.getUserMedia({
+  video: true,
+  audio: true
+}).then(stream => {
+  addVideoStream(stream, myVideo);
+})
+
+
+function addVideoStream(stream, video) {
+  video.srcObject = stream;
+  video.addEventListener('loadedmetadata', () => {
+    console.log('loaded');
+    video.play();
+  });
+  videoGrid.append(video);
+}
+
+
+
+
+//////////////////////////////////////////
+///// Functions for the Phaser scene /////
+//////////////////////////////////////////
 
 function preload()
 {
@@ -144,7 +173,7 @@ function update()
     //Creating all players in initialization
     if (create_players_flag) {
       create_players_flag = false;
-      createPlayers(this);
+      initPlayers(this);
     }
 
     //Move our player
@@ -182,19 +211,24 @@ function update()
     //Update the cursors of the other players
     updateCursors(this);
 
-    //Move the characters of other players
+    //Move the characters of the other players
     movePlayers();
 }
 
 
+
+/////////////////////////////////
+///// Auxialiary Functions //////
+/////////////////////////////////
+
 /*  When we join a room, the server sends a gameState containing all the players in the room
     This function creates an instance of these players locally
 */
-function createPlayers(scene) {
-  for (let id in gameState.players) {
+function initPlayers(scene) {
+  for (let id in gameState.coords) {
       if (id != PLAYER_ID) {
           if (!(id in players)) { //new player
-              const coords = gameState.players[id];
+              const coords = gameState.coords[id];
               cursors[id] = {right: false, left: false, up: false, down: false};
               positions[id] = {x: coords.x, y: coords.y};
               players[id] = scene.physics.add.sprite(coords.x, coords.y, 'hemadi', 'walk_down_2.png');
@@ -204,7 +238,6 @@ function createPlayers(scene) {
       }
   }
 }
-
 
 /*  Add a player that have just joined the room
 */
@@ -216,7 +249,6 @@ function addPlayer(scene, playerId, playerCoords) {
     scene.physics.add.collider(players[playerId], collideLayer);
 }
 
-
 /*  Remove a player that have just exited the room
 */
 function removePlayer(playerId) {
@@ -226,38 +258,30 @@ function removePlayer(playerId) {
     delete positions[playerId];
 }
 
-
 /*  On each frame, the other players send their updated positions.
     If the updated position for a player is different from the local position,
   we activate the cursors (arrow keys) corresponding to this player to be able to move
   his character later
 */
 function updateCursors(game) {
-    for (let id in players) {
-        if (players[id].x > positions[id].x) {
-            cursors[id].left = true;
-        }
-        else if (players[id].x < positions[id].x) {
-            cursors[id].right = true;
-        }
-        else {
-            cursors[id].left = false;
-            cursors[id].right = false;
-        }
 
-        if (players[id].y > positions[id].y) {
-            cursors[id].up = true;
-        }
-        else if (players[id].y < positions[id].y) {
-            cursors[id].down = true;
-        }
-        else {
-            cursors[id].up = false;
-            cursors[id].down = false;
-        }
+    for (let id in players) {
+        if (players[id].x > positions[id].x)
+            cursors[id] = {left: true, right: false, up: false, down: false}
+
+        else if (players[id].x < positions[id].x)
+            cursors[id] = {left: false, right: true, up: false, down: false}
+
+        else if (players[id].y > positions[id].y)
+            cursors[id] = {left: false, right: false, up: true, down: false}
+
+        else if (players[id].y < positions[id].y)
+            cursors[id] = {left: false, right: false, up: false, down: true}
+
+        else
+            cursors[id] = {left: false, right: false, up: false, down: false}
     }
 }
-
 
 /* Based on the cursors state of each player,
   we move the character corresponding to this player

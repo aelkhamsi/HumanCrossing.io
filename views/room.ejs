@@ -7,14 +7,33 @@
     <script defer src="//cdn.jsdelivr.net/npm/phaser@3.11.0/dist/phaser.js"></script>  <!-- Phaser -->
     <script defer src="https://unpkg.com/peerjs@1.2.0/dist/peerjs.min.js"></script> <!-- Peer.js -->
     <script src="/socket.io/socket.io.js" defer></script> <!-- Socket.io -->
-
     <script>
         const ROOM_ID = "<%= roomId %>"
     </script>
-    <script defer type="text/javascript" src="./script.js"> </script>
     <style type="text/css">
         body {
             margin: 0;
+        }
+        #video-grid {
+            display: grid;
+            height: 600px;
+            grid-template-columns: repeat(auto-fill, 200px);
+            grid-template-rows: 200px;
+            margin-top: 5%;
+            overflow: auto;
+        }
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        #phaser-scene {
+            margin-left: 15%;
+            margin-top: 5%;
+
+        }
+        #dashboard {
+            display: flex;
         }
     </style>
   </head>
@@ -22,7 +41,12 @@
 
   <body>
 
+    <div id="dashboard">
+      <canvas id="phaser-scene"></canvas>
+      <div id="video-grid"> </div>
+    </div>
 
+    <script defer type="text/javascript" src="./script.js"> </script>
 
   </body>
 
