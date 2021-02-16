@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8">
     <title>Aekaa</title>
+    <link rel="stylesheet" href="styles.css">
 
     <script defer src="//cdn.jsdelivr.net/npm/phaser@3.11.0/dist/phaser.js"></script>  <!-- Phaser -->
     <script defer src="https://unpkg.com/peerjs@1.2.0/dist/peerjs.min.js"></script> <!-- Peer.js -->
@@ -10,42 +11,6 @@
     <script>
         const ROOM_ID = "<%= roomId %>"
     </script>
-    <style type="text/css">
-        html, body {
-            margin: 0;
-            height: 100%;
-            background: linear-gradient(#89c4ff, #f0ffff);
-        }
-        .grid {
-            display: grid;
-            height: 600px;
-            grid-template-columns: 300px;
-            grid-template-rows: repeat(auto-fill, 200px);
-            margin-top: 5%;
-            overflow: auto;
-            background: #d8ebff;
-        }
-        #own-video-grid {
-          margin-left: 2%;
-        }
-        video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        #example {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            background: yellow;
-        }
-        #phaser-scene {
-            margin-top: 5%;
-        }
-        #dashboard {
-            display: flex;
-        }
-    </style>
   </head>
 
 
