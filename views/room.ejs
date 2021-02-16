@@ -11,26 +11,36 @@
         const ROOM_ID = "<%= roomId %>"
     </script>
     <style type="text/css">
-        body {
+        html, body {
             margin: 0;
+            height: 100%;
+            background: linear-gradient(#89c4ff, #f0ffff);
         }
-        #video-grid {
+        .grid {
             display: grid;
             height: 600px;
-            grid-template-columns: repeat(auto-fill, 200px);
-            grid-template-rows: 200px;
+            grid-template-columns: 300px;
+            grid-template-rows: repeat(auto-fill, 200px);
             margin-top: 5%;
             overflow: auto;
+            background: #d8ebff;
+        }
+        #own-video-grid {
+          margin-left: 2%;
         }
         video {
             width: 100%;
             height: 100%;
             object-fit: cover;
         }
+        #example {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            background: yellow;
+        }
         #phaser-scene {
-            margin-left: 15%;
             margin-top: 5%;
-
         }
         #dashboard {
             display: flex;
@@ -42,8 +52,9 @@
   <body>
 
     <div id="dashboard">
+      <div id="own-video-grid" class="grid"></div>
       <canvas id="phaser-scene"></canvas>
-      <div id="video-grid"> </div>
+      <div id="video-grid" class="grid"></div>
     </div>
 
     <script defer type="text/javascript" src="./script.js"> </script>

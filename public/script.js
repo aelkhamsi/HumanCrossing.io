@@ -16,7 +16,7 @@ var positions = {};  // positions of the other players
 //we don't need to store our position globally
 
 var peers = {}; //peer-to-peer call objects
-var videoElements = {}; //HTML video elements linked to each player
+var videos = {}; //HTML video elements linked to each player
 
 var speed = 120;
 var collideLayer;
@@ -58,8 +58,8 @@ socket.on('remove-player', playerId => {
     peers[playerId].close();
     delete peers[playerId];
 
-    videoElements[playerId].remove();
-    delete videoElements[playerId];
+    videos[playerId].remove();
+    delete videos[playerId];
 });
 
 socket.on('player-state', (playerId, playerCoords) => { //Update the positions of a player
@@ -80,6 +80,7 @@ myPeer.on('open', id => { //The connection to a peer server gives each player a 
 });
 
 const videoGrid = document.getElementById('video-grid');
+const ownVideoGrid = document.getElementById('own-video-grid');
 const myVideo = document.createElement('video');
 myVideo.muted = true;
 
@@ -87,14 +88,14 @@ navigator.mediaDevices.getUserMedia({
   video: true,
   audio: true
 }).then(stream => {
-  addVideoStream(stream, myVideo, undefined);
+  addVideoStream(stream, myVideo, undefined, ownVideoGrid);
 
   myPeer.on('call', call => { //id?
     const playerId = call.peer;
     call.answer(stream);
     const video = document.createElement('video');
     call.on('stream', stream => {
-      addVideoStream(stream, video, playerId);
+      addVideoStream(stream, video, playerId, videoGrid);
     });
 
     peers[playerId] = call;
@@ -107,13 +108,13 @@ navigator.mediaDevices.getUserMedia({
 })
 
 
-function addVideoStream(stream, video, playerId) {
+function addVideoStream(stream, video, playerId, videoGrid) {
   video.srcObject = stream;
   video.addEventListener('loadedmetadata', () => {
     video.play();
   });
   videoGrid.append(video);
-  if (playerId) videoElements[playerId] = video;
+  if (playerId) videos[playerId] = video;
 }
 
 
@@ -121,7 +122,7 @@ function sendVideoStream(playerId, stream) {
   const call = myPeer.call(playerId, stream);
   const video = document.createElement('video');
   call.on('stream', stream => {
-    addVideoStream(stream, video, playerId);
+    addVideoStream(stream, video, playerId, videoGrid);
   });
 
   peers[playerId] = call;

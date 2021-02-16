@@ -48,6 +48,7 @@ io.on('connection', socket => {
           break;
         }
       }
+      
       if (isEmpty(gameStates[roomId].coords))//empty room
         delete gameStates[roomId];
       else
