@@ -101,19 +101,21 @@ navigator.mediaDevices.getUserMedia({
     peers[playerId] = call;
   })
 
+
   socket.on('add-player', (playerId, playerCoords) => {
       addPlayer(scene, playerId, playerCoords);
       sendVideoStream(playerId, stream);
   });
+
 })
 
 
 function addVideoStream(stream, video, playerId, videoGrid) {
   video.srcObject = stream;
   video.addEventListener('loadedmetadata', () => {
-    video.play();
+    if (!playerId) video.play();
   });
-  videoGrid.append(video);
+  if (!playerId) videoGrid.append(video);
   if (playerId) videos[playerId] = video;
 }
 
@@ -244,6 +246,9 @@ function update()
 
     //Move the characters of the other players
     movePlayers();
+
+    //video chat with nearby players
+    connectWithNearbyPlayers();
 }
 
 
@@ -349,6 +354,34 @@ function movePlayers() {
         }
       }
     }
+}
+
+
+/*
+  Play the video stream of the players that are nearby
+*/
+function connectWithNearbyPlayers() {
+  const x = localPlayer.x;
+  const y = localPlayer.y;
+
+  for (let id in players) {
+    const px = positions[id].x
+    const py = positions[id].y
+
+    if (abs(x - px) < 50 && abs(y - py) < 50 ) {
+        if (videos[id].paused) {
+            videos[id].play();
+            videoGrid.append(videos[id]);
+        }
+    } else if (!videos[id].paused) {
+        videos[id].pause();
+        videos[id].remove();
+    }
+  }
+}
+
+function abs(n) {
+  return n>=0 ? n : -n;
 }
 
 //dev
