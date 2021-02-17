@@ -1,4 +1,4 @@
-# VirtualWorld
+# HumanCrossing.io
 A virtual world where people control characters and can video chat with people they meet on the map
 
 To install dependencies:
