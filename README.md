@@ -1,5 +1,6 @@
 # HumanCrossing.io
 A virtual world where people control characters and can video chat with people they meet on the map
+A presentation of the project @ https://aelkhamsi.github.io/humancrossing.html
 
 To install dependencies:
 
@@ -9,7 +10,6 @@ To start the server:
 
     npm run dev
     
-
 
 To create a new room, go to 
     http://localhost:8080/
