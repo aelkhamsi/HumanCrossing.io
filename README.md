@@ -1,5 +1,5 @@
 # HumanCrossing.io
-A virtual world where people control characters and can video chat with people they meet on the map
+A virtual world where people control characters and can video chat with people they meet on the map. </br>
 A presentation of the project @ https://aelkhamsi.github.io/humancrossing.html
 
 To install dependencies:
