@@ -14,4 +14,4 @@ To start the server:
 To create a new room, go to 
     http://localhost:8080/
 
-To make two players join the same room, make sure they use the same URL
+To make two players join the same room, make sure they use the same URL (usually in the following form http://localhost:8080/:roomId )
